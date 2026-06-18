@@ -7,20 +7,36 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  Switch,
 } from "react-native";
-import { signOut } from "firebase/auth";
+import {
+  signOut,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+} from "firebase/auth";
 import { collection, doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { router } from "expo-router";
+
 import { auth, db } from "../../config/FirebaseConfig";
+import { useTheme } from "../../context/ThemeContext";
 
 type Expense = {
   amount: number;
 };
 
 export default function ProfileScreen() {
+  const { theme, isDark, toggleTheme } = useTheme();
+
   const [nickname, setNickname] = useState("");
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+
   const [budget, setBudget] = useState("");
   const [savedBudget, setSavedBudget] = useState<number | null>(null);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+
+  const [showBudgetPassword, setShowBudgetPassword] = useState(false);
+  const [password, setPassword] = useState("");
+
   const [totalSpent, setTotalSpent] = useState(0);
 
   useEffect(() => {
@@ -35,11 +51,18 @@ export default function ProfileScreen() {
         const data = snap.data();
 
         setNickname(data.nickname || "");
+        setIsEditingNickname(!data.nickname);
 
         if (data.monthlyBudget) {
           setSavedBudget(Number(data.monthlyBudget));
           setBudget(String(data.monthlyBudget));
+          setIsEditingBudget(false);
+        } else {
+          setIsEditingBudget(true);
         }
+      } else {
+        setIsEditingNickname(true);
+        setIsEditingBudget(true);
       }
     };
 
@@ -82,20 +105,53 @@ export default function ProfileScreen() {
         { merge: true }
       );
 
-      Alert.alert("Uspeh", "Profil je sačuvan.");
+      setIsEditingNickname(false);
+      Alert.alert("Uspeh", "Nickname je sačuvan.");
     } catch (error: any) {
       Alert.alert("Greška", error.message);
+    }
+  };
+
+  const handleBudgetEditPress = () => {
+    if (savedBudget === null) {
+      setIsEditingBudget(true);
+      return;
+    }
+
+    setShowBudgetPassword(true);
+  };
+
+  const handleReauthenticateBudget = async () => {
+    const user = auth.currentUser;
+
+    if (!user || !user.email) {
+      Alert.alert("Greška", "Korisnik nije pronađen.");
+      return;
+    }
+
+    if (!password.trim()) {
+      Alert.alert("Greška", "Unesi lozinku.");
+      return;
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(user.email, password);
+
+      await reauthenticateWithCredential(user, credential);
+
+      setPassword("");
+      setShowBudgetPassword(false);
+      setIsEditingBudget(true);
+
+      Alert.alert("Uspeh", "Sada možeš da izmeniš budžet.");
+    } catch (error: any) {
+      Alert.alert("Greška", "Pogrešna lozinka ili re-autentifikacija nije uspela.");
     }
   };
 
   const handleSaveBudget = async () => {
     const user = auth.currentUser;
     if (!user) return;
-
-    if (savedBudget !== null) {
-      Alert.alert("Info", "Budžet je već postavljen i zaključan.");
-      return;
-    }
 
     if (!budget || Number(budget) <= 0) {
       Alert.alert("Greška", "Unesi validan mesečni budžet.");
@@ -113,7 +169,8 @@ export default function ProfileScreen() {
       );
 
       setSavedBudget(Number(budget));
-      Alert.alert("Uspeh", "Budžet je sačuvan i zaključan.");
+      setIsEditingBudget(false);
+      Alert.alert("Uspeh", "Budžet je sačuvan.");
     } catch (error: any) {
       Alert.alert("Greška", error.message);
     }
@@ -124,83 +181,210 @@ export default function ProfileScreen() {
     router.replace("/auth/login" as any);
   };
 
-  const remainingBudget =
-    savedBudget !== null ? savedBudget - totalSpent : 0;
+  const remainingBudget = savedBudget !== null ? savedBudget - totalSpent : 0;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Profil</Text>
+    <ScrollView
+      contentContainerStyle={[
+        styles.container,
+        { backgroundColor: theme.background },
+      ]}
+    >
+      <Text style={[styles.title, { color: theme.text }]}>Profil</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Korisnik</Text>
-        <Text style={styles.cardValue}>
-          {nickname || "Nije postavljen nickname"}
-        </Text>
-      </View>
-
-      <Text style={styles.label}>Nickname</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Unesi nickname"
-        value={nickname}
-        onChangeText={setNickname}
-      />
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-        <Text style={styles.buttonText}>Sačuvaj nickname</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.label}>Mesečni budžet</Text>
-
-      <TextInput
+      <View
         style={[
-          styles.input,
-          savedBudget !== null && styles.disabledInput,
+          styles.card,
+          { backgroundColor: theme.card, borderColor: theme.border },
         ]}
-        placeholder="Unesi budžet u RSD"
-        value={budget}
-        onChangeText={setBudget}
-        keyboardType="numeric"
-        editable={savedBudget === null}
-      />
-
-      <TouchableOpacity
-        style={[
-          styles.saveButton,
-          savedBudget !== null && styles.disabledButton,
-        ]}
-        onPress={handleSaveBudget}
-        disabled={savedBudget !== null}
       >
-        <Text style={styles.buttonText}>
-          {savedBudget !== null ? "Budžet zaključan" : "Sačuvaj budžet"}
-        </Text>
-      </TouchableOpacity>
+        <View style={styles.themeRow}>
+          <View>
+            <Text style={[styles.cardLabel, { color: theme.secondaryText }]}>
+              Tema aplikacije
+            </Text>
+            <Text style={[styles.cardValue, { color: theme.text }]}>
+              {isDark ? "Dark mode" : "Light mode"}
+            </Text>
+          </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Mesečni budžet</Text>
-        <Text style={styles.cardValue}>
-          {savedBudget !== null ? `${savedBudget} RSD` : "Nije postavljen"}
-        </Text>
+          <Switch value={isDark} onValueChange={toggleTheme} />
+        </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Potrošeno</Text>
-        <Text style={styles.cardValue}>{totalSpent} RSD</Text>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
+      >
+        <View style={styles.userInfo}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {nickname ? nickname.charAt(0).toUpperCase() : "?"}
+            </Text>
+          </View>
+
+          <View>
+            <Text style={[styles.cardLabel, {color: theme.secondaryText }]}>
+              Korisnik
+            </Text>
+
+            <Text style={[styles.cardValue, {color: theme.text}]}>
+              {nickname || "Nije postavljen nickname"}
+            </Text>
+          </View>
+        </View>
+
+          {nickname ? (
+            <TouchableOpacity
+              style={styles.editSmallButton}
+              onPress={() => setIsEditingNickname(true)}
+            >
+              <Text style={styles.editSmallButtonText}>Edit</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+      {isEditingNickname && (
+        <>
+          <Text style={[styles.label, { color: theme.text }]}>Nickname</Text>
+
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            placeholder="Unesi nickname"
+            placeholderTextColor={theme.secondaryText}
+            value={nickname}
+            onChangeText={setNickname}
+            returnKeyType="done"
+            onSubmitEditing={handleSaveProfile}
+          />
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
+            <Text style={styles.buttonText}>Sačuvaj nickname</Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
+      >
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={[styles.cardLabel, { color: theme.secondaryText }]}>
+              Budžet
+            </Text>
+            <Text style={[styles.cardValue, { color: theme.text }]}>
+              {savedBudget !== null ? `${savedBudget} RSD` : "Nije postavljen"}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.editSmallButton}
+            onPress={handleBudgetEditPress}
+          >
+            <Text style={styles.editSmallButtonText}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.budgetDetails}>
+          <View style={styles.budgetRow}>
+            <Text style={[styles.budgetLabel, { color: theme.secondaryText }]}>
+              Potrošeno
+            </Text>
+            <Text style={[styles.budgetValue, { color: theme.text }]}>
+              {totalSpent} RSD
+            </Text>
+          </View>
+
+          <View style={styles.budgetRow}>
+            <Text style={[styles.budgetLabel, { color: theme.secondaryText }]}>
+              Preostalo
+            </Text>
+            <Text
+              style={[
+                styles.budgetValue,
+                { color: remainingBudget >= 0 ? "#34C759" : "#FF3B30" },
+              ]}
+            >
+              {savedBudget !== null ? `${remainingBudget} RSD` : "Nema budžeta"}
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Preostalo</Text>
-        <Text
-          style={[
-            styles.cardValue,
-            { color: remainingBudget >= 0 ? "green" : "red" },
-          ]}
-        >
-          {savedBudget !== null ? `${remainingBudget} RSD` : "Nema budžeta"}
-        </Text>
-      </View>
+      {showBudgetPassword && (
+        <>
+          <Text style={[styles.label, { color: theme.text }]}>
+            Potvrdi lozinku za izmenu budžeta
+          </Text>
+
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            placeholder="Unesi lozinku"
+            placeholderTextColor={theme.secondaryText}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            returnKeyType="done"
+            onSubmitEditing={handleReauthenticateBudget}
+          />
+
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleReauthenticateBudget}
+          >
+            <Text style={styles.buttonText}>Potvrdi</Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {isEditingBudget && (
+        <>
+          <Text style={[styles.label, { color: theme.text }]}>
+            Mesečni budžet
+          </Text>
+
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            placeholder="Unesi mesečni budžet"
+            placeholderTextColor={theme.secondaryText}
+            value={budget}
+            onChangeText={setBudget}
+            keyboardType="numeric"
+            returnKeyType="done"
+            onSubmitEditing={handleSaveBudget}
+          />
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveBudget}>
+            <Text style={styles.buttonText}>Sačuvaj budžet</Text>
+          </TouchableOpacity>
+        </>
+      )}
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.buttonText}>Odjavi se</Text>
@@ -211,6 +395,7 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flexGrow: 1,
     padding: 20,
     paddingTop: 70,
   },
@@ -227,23 +412,15 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
     borderRadius: 10,
     padding: 12,
     marginBottom: 15,
-  },
-  disabledInput: {
-    backgroundColor: "#eee",
-    color: "#777",
   },
   saveButton: {
     backgroundColor: "#007AFF",
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
-  },
-  disabledButton: {
-    backgroundColor: "#999",
   },
   logoutButton: {
     backgroundColor: "#FF3B30",
@@ -259,18 +436,70 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
   },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   cardLabel: {
     fontSize: 15,
-    color: "#666",
   },
   cardValue: {
     fontSize: 20,
     fontWeight: "bold",
     marginTop: 5,
   },
+  themeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  editSmallButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  editSmallButtonText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  budgetDetails: {
+    marginTop: 16,
+    gap: 12,
+  },
+  budgetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  budgetLabel: {
+    fontSize: 15,
+  },
+  budgetValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  userInfo: {
+  flexDirection: "row",
+  alignItems: "center",
+},
+avatar: {
+  width: 55,
+  height: 55,
+  borderRadius: 27.5,
+  backgroundColor: "#007AFF",
+  justifyContent: "center",
+  alignItems: "center",
+  marginRight: 12,
+},
+avatarText: {
+  color: "white",
+  fontSize: 24,
+  fontWeight: "bold",
+},
 });

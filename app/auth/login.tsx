@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,49 +8,83 @@ import {
   Alert,
 } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../config/FirebaseConfig";
 import { router } from "expo-router";
 
+import { auth } from "../../config/FirebaseConfig";
+import { useTheme } from "../../context/ThemeContext";
+
 export default function LoginScreen() {
+  const { theme } = useTheme();
+
+  const passwordInputRef = useRef<TextInput>(null);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Greška", "Unesi email i lozinku.");
+      return;
+    }
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
-
       router.replace("/(tabs)/home" as any);
-
     } catch (error: any) {
       Alert.alert("Greška", error.message);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Prijava</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>Prijava</Text>
 
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+          },
+        ]}
         placeholder="Email"
+        placeholderTextColor={theme.secondaryText}
         value={email}
         onChangeText={setEmail}
+        keyboardType="email-address"
         autoCapitalize="none"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordInputRef.current?.focus()}
       />
 
       <TextInput
-        style={styles.input}
+        ref={passwordInputRef}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+          },
+        ]}
         placeholder="Lozinka"
+        placeholderTextColor={theme.secondaryText}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        returnKeyType="done"
+        onSubmitEditing={handleLogin}
       />
 
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>Prijavi se</Text>
       </TouchableOpacity>
+
       <TouchableOpacity onPress={() => router.push("/auth/register" as any)}>
-        <Text style={styles.linkText}>Nemaš nalog? Registruj se</Text>
+        <Text style={[styles.linkText, { color: theme.primary }]}>
+          Nemaš nalog? Registruj se
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -70,7 +104,6 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
     borderRadius: 10,
     padding: 12,
     marginBottom: 15,
@@ -88,7 +121,6 @@ const styles = StyleSheet.create({
   linkText: {
     marginTop: 20,
     textAlign: "center",
-    color: "#007AFF",
     fontWeight: "600",
   },
 });

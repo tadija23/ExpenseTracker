@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,10 +9,17 @@ import {
 } from "react-native";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { router } from "expo-router";
-import { auth, db } from "../../config/FirebaseConfig";
 import { Picker } from "@react-native-picker/picker";
 
+import { auth, db } from "../../config/FirebaseConfig";
+import { useTheme } from "../../context/ThemeContext";
+
 export default function AddExpenseScreen() {
+  const { theme } = useTheme();
+
+  const amountInputRef = useRef<TextInput>(null);
+  const descriptionInputRef = useRef<TextInput>(null);
+
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Hrana");
@@ -49,48 +56,102 @@ export default function AddExpenseScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <TouchableOpacity
         onPress={() => router.back()}
-        style={styles.backButton}
+        style={[
+          styles.backButton,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+          },
+        ]}
       >
-        <Text style={styles.backText}>← Nazad</Text>
+        <Text style={[styles.backText, { color: theme.primary }]}>
+          ← Nazad
+        </Text>
       </TouchableOpacity>
-      <Text style={styles.title}>Dodaj trošak</Text>
+
+      <Text style={[styles.title, { color: theme.text }]}>Dodaj trošak</Text>
 
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+          },
+        ]}
         placeholder="Naziv troška"
+        placeholderTextColor={theme.secondaryText}
         value={title}
         onChangeText={setTitle}
+        returnKeyType="next"
+        onSubmitEditing={() => amountInputRef.current?.focus()}
       />
 
       <TextInput
-        style={styles.input}
+        ref={amountInputRef}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+          },
+        ]}
         placeholder="Iznos"
+        placeholderTextColor={theme.secondaryText}
         value={amount}
         onChangeText={setAmount}
         keyboardType="numeric"
+        returnKeyType="next"
+        onSubmitEditing={() => descriptionInputRef.current?.focus()}
       />
-      <Picker
-        selectedValue={category}
-        onValueChange={(itemValue) => setCategory(itemValue)}
-        style={styles.picker}
+
+      <View
+        style={[
+          styles.pickerWrapper,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+          },
+        ]}
       >
-        <Picker.Item label="Hrana" value="Hrana" />
-        <Picker.Item label="Prevoz" value="Prevoz" />
-        <Picker.Item label="Račun" value="Račun" />
-        <Picker.Item label="Zdravlje" value="Zdravlje" />
-        <Picker.Item label="Zabava" value="Zabava" />
-        <Picker.Item label="Obrazovanje" value="Obrazovanje" />
-        <Picker.Item label="Ostalo" value="Ostalo" />
-      </Picker>
+        <Picker
+          selectedValue={category}
+          onValueChange={(itemValue) => setCategory(itemValue)}
+          style={[styles.picker, { color: theme.text }]}
+          dropdownIconColor={theme.text}
+        >
+          <Picker.Item label="Hrana" value="Hrana" />
+          <Picker.Item label="Prevoz" value="Prevoz" />
+          <Picker.Item label="Računi" value="Računi" />
+          <Picker.Item label="Zabava" value="Zabava" />
+          <Picker.Item label="Ostalo" value="Ostalo" />
+        </Picker>
+      </View>
 
       <TextInput
-        style={styles.input}
+        ref={descriptionInputRef}
+        style={[
+          styles.input,
+          styles.descriptionInput,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+          },
+        ]}
         placeholder="Opis"
+        placeholderTextColor={theme.secondaryText}
         value={description}
         onChangeText={setDescription}
+        multiline
+        blurOnSubmit
+        returnKeyType="done"
+        onSubmitEditing={handleAddExpense}
       />
 
       <TouchableOpacity style={styles.button} onPress={handleAddExpense}>
@@ -104,7 +165,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    justifyContent: "center",
+    paddingTop: 60,
+  },
+  backButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  backText: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
   title: {
     fontSize: 28,
@@ -114,37 +187,32 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
     borderRadius: 10,
     padding: 12,
     marginBottom: 15,
+  },
+  descriptionInput: {
+    minHeight: 90,
+    textAlignVertical: "top",
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderRadius: 10,
+    marginBottom: 15,
+    overflow: "hidden",
+  },
+  picker: {
+    height: 50,
   },
   button: {
     backgroundColor: "#007AFF",
     padding: 15,
     borderRadius: 10,
+    marginTop: 5,
   },
   buttonText: {
     color: "white",
     textAlign: "center",
     fontWeight: "bold",
-  },
-  picker: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    marginBottom: 15,
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#f0f0f0",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  backText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#007AFF",
   },
 });

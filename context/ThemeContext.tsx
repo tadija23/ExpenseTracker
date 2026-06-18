@@ -22,7 +22,7 @@ const lightTheme: Theme = {
   text: "#111827",
   secondaryText: "#6B7280",
   border: "#E5E7EB",
-  primary: "#2563EB",
+  primary: "#007AFF",
 };
 
 const darkTheme: Theme = {

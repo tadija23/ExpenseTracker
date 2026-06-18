@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
 import { deleteDoc, doc, getDoc } from "firebase/firestore";
+
 import { auth, db } from "../../config/FirebaseConfig";
+import { useTheme } from "../../context/ThemeContext";
 
 type Expense = {
   title: string;
@@ -13,12 +22,19 @@ type Expense = {
 
 export default function ExpenseDetailsScreen() {
   const { id } = useLocalSearchParams();
+  const { theme } = useTheme();
+
   const [expense, setExpense] = useState<Expense | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadExpense = async () => {
       const user = auth.currentUser;
-      if (!user || !id) return;
+
+      if (!user || !id) {
+        setLoading(false);
+        return;
+      }
 
       const ref = doc(db, "users", user.uid, "expenses", String(id));
       const snap = await getDoc(ref);
@@ -26,6 +42,8 @@ export default function ExpenseDetailsScreen() {
       if (snap.exists()) {
         setExpense(snap.data() as Expense);
       }
+
+      setLoading(false);
     };
 
     loadExpense();
@@ -33,38 +51,83 @@ export default function ExpenseDetailsScreen() {
 
   const handleDelete = async () => {
     const user = auth.currentUser;
+
     if (!user || !id) return;
 
-    try {
-      await deleteDoc(doc(db, "users", user.uid, "expenses", String(id)));
-      Alert.alert("Uspeh", "Trošak je obrisan.");
-      router.replace("/(tabs)/expenses" as any);
-    } catch (error: any) {
-      Alert.alert("Greška", error.message);
-    }
+    Alert.alert("Brisanje troška", "Da li si siguran da želiš da obrišeš ovaj trošak?", [
+      {
+        text: "Otkaži",
+        style: "cancel",
+      },
+      {
+        text: "Obriši",
+        style: "destructive",
+        onPress: async () => {
+          await deleteDoc(doc(db, "users", user.uid, "expenses", String(id)));
+          router.replace("/(tabs)/expenses" as any);
+        },
+      },
+    ]);
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
 
   if (!expense) {
     return (
-      <View style={styles.container}>
-        <Text>Učitavanje...</Text>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <Text style={[styles.title, { color: theme.text }]}>
+          Trošak nije pronađen.
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <TouchableOpacity
         onPress={() => router.back()}
-        style={styles.backButton}
+        style={[
+          styles.backButton,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+          },
+        ]}
       >
-        <Text style={styles.backText}>← Nazad</Text>
+        <Text style={[styles.backText, { color: theme.primary }]}>← Nazad</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>{expense.title}</Text>
-      <Text style={styles.text}>Kategorija: {expense.category}</Text>
-      <Text style={styles.text}>Iznos: {expense.amount} RSD</Text>
-      <Text style={styles.text}>Opis: {expense.description || "Nema opisa"}</Text>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <Text style={[styles.title, { color: theme.text }]}>
+          {expense.title}
+        </Text>
+
+        <Text style={[styles.info, { color: theme.text }]}>
+          Kategorija: {expense.category}
+        </Text>
+
+        <Text style={[styles.info, { color: theme.text }]}>
+          Iznos: {expense.amount} RSD
+        </Text>
+
+        <Text style={[styles.info, { color: theme.text }]}>
+          Opis: {expense.description || "Nema opisa"}
+        </Text>
+      </View>
 
       <TouchableOpacity
         style={styles.editButton}
@@ -91,43 +154,52 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 70,
   },
-  title: {
-    fontSize: 30,
-    fontWeight: "bold",
-    marginBottom: 20,
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  text: {
+  backButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 25,
+  },
+  backText: {
     fontSize: 18,
-    marginBottom: 10,
+    fontWeight: "bold",
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 18,
+    marginBottom: 25,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 22,
+  },
+  info: {
+    fontSize: 18,
+    marginBottom: 12,
   },
   editButton: {
     backgroundColor: "#007AFF",
     padding: 15,
     borderRadius: 10,
-    marginTop: 30,
+    marginBottom: 15,
   },
   deleteButton: {
     backgroundColor: "#FF3B30",
     padding: 15,
     borderRadius: 10,
-    marginTop: 15,
   },
   buttonText: {
     color: "white",
     textAlign: "center",
     fontWeight: "bold",
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#f0f0f0",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-    backText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#007AFF",
   },
 });
