@@ -9,7 +9,8 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { deleteDoc, doc, getDoc } from "firebase/firestore";
-
+import { useAppDispatch } from "../../store/hooks";
+import { deleteExpenseFromStore } from "../../store/expensesSlice";
 import { auth, db } from "../../config/FirebaseConfig";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -23,7 +24,7 @@ type Expense = {
 export default function ExpenseDetailsScreen() {
   const { id } = useLocalSearchParams();
   const { theme } = useTheme();
-
+  const dispatch = useAppDispatch();
   const [expense, setExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -63,8 +64,9 @@ export default function ExpenseDetailsScreen() {
         text: "Obriši",
         style: "destructive",
         onPress: async () => {
-          await deleteDoc(doc(db, "users", user.uid, "expenses", String(id)));
-          router.replace("/(tabs)/expenses" as any);
+        await deleteDoc(doc(db, "users", user.uid, "expenses", String(id)));
+        dispatch(deleteExpenseFromStore(String(id)));
+        router.replace("/(tabs)/expenses" as any);
         },
       },
     ]);

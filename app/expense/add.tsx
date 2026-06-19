@@ -10,13 +10,14 @@ import {
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { router } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
-
+import { useAppDispatch } from "../../store/hooks";
+import { addExpenseToStore } from "../../store/expensesSlice";
 import { auth, db } from "../../config/FirebaseConfig";
 import { useTheme } from "../../context/ThemeContext";
 
 export default function AddExpenseScreen() {
   const { theme } = useTheme();
-
+  const dispatch = useAppDispatch();
   const amountInputRef = useRef<TextInput>(null);
   const descriptionInputRef = useRef<TextInput>(null);
 
@@ -39,7 +40,7 @@ export default function AddExpenseScreen() {
     }
 
     try {
-      await addDoc(collection(db, "users", user.uid, "expenses"), {
+      const docRef = await addDoc(collection(db, "users", user.uid, "expenses"), {
         title,
         amount: Number(amount),
         category,
@@ -47,6 +48,16 @@ export default function AddExpenseScreen() {
         createdAt: serverTimestamp(),
         userId: user.uid,
       });
+
+      dispatch(
+        addExpenseToStore({
+          id: docRef.id,
+          title,
+          amount: Number(amount),
+          category,
+          description,
+        })
+      );
 
       Alert.alert("Uspeh", "Trošak je dodat.");
       router.replace("/(tabs)/expenses" as any);

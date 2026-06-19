@@ -11,7 +11,8 @@ import {
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { router } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
-
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { setExpenses, setExpensesLoading } from "../../store/expensesSlice";
 import { auth, db } from "../../config/FirebaseConfig";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -33,6 +34,8 @@ const getCategoryIcon = (category: string) => {
       return "🧾";
     case "Zabava":
       return "🎮";
+    case "Zdravlje":
+      return "💊";
     default:
       return "📌";
   }
@@ -41,16 +44,17 @@ const getCategoryIcon = (category: string) => {
 export default function ExpensesScreen() {
   const { theme } = useTheme();
 
-  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
   const [sortType, setSortType] = useState("newest");
+  const expenses = useAppSelector((state) => state.expenses.expenses);
+  const loading = useAppSelector((state) => state.expenses.loading);
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     const user = auth.currentUser;
 
     if (!user) {
-      setLoading(false);
+      dispatch(setExpensesLoading(false));
       return;
     }
 
@@ -58,13 +62,19 @@ export default function ExpensesScreen() {
     const q = query(expensesRef, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: Expense[] = snapshot.docs.map((expenseDoc) => ({
-        id: expenseDoc.id,
-        ...(expenseDoc.data() as Omit<Expense, "id">),
-      }));
+      const data: Expense[] = snapshot.docs.map((expenseDoc) => {
+        const expenseData = expenseDoc.data();
 
-      setExpenses(data);
-      setLoading(false);
+        return {
+          id: expenseDoc.id,
+          title: expenseData.title || "",
+          amount: Number(expenseData.amount || 0),
+          category: expenseData.category || "",
+          description: expenseData.description || "",
+        };
+      });
+
+      dispatch(setExpenses(data));
     });
 
     return unsubscribe;

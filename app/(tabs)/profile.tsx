@@ -218,23 +218,24 @@ export default function ProfileScreen() {
           { backgroundColor: theme.card, borderColor: theme.border },
         ]}
       >
-        <View style={styles.userInfo}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {nickname ? nickname.charAt(0).toUpperCase() : "?"}
-            </Text>
-          </View>
+        <View style={styles.cardHeader}>
+          <View style={styles.userInfo}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {nickname ? nickname.charAt(0).toUpperCase() : "?"}
+              </Text>
+            </View>
 
-          <View>
-            <Text style={[styles.cardLabel, {color: theme.secondaryText }]}>
-              Korisnik
-            </Text>
+            <View style={styles.userTextContainer}>
+              <Text style={[styles.cardLabel, { color: theme.secondaryText }]}>
+                Korisnik
+              </Text>
 
-            <Text style={[styles.cardValue, {color: theme.text}]}>
-              {nickname || "Nije postavljen nickname"}
-            </Text>
+              <Text style={[styles.cardValue, { color: theme.text }]}>
+                {nickname || "Nije postavljen nickname"}
+              </Text>
+            </View>
           </View>
-        </View>
 
           {nickname ? (
             <TouchableOpacity
@@ -245,6 +246,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
+      </View>
 
       {isEditingNickname && (
         <>
@@ -460,9 +462,10 @@ const styles = StyleSheet.create({
   },
   editSmallButton: {
     backgroundColor: "#007AFF",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 8,
+    marginLeft: 12,
   },
   editSmallButtonText: {
     color: "white",
@@ -485,8 +488,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   userInfo: {
-  flexDirection: "row",
-  alignItems: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
 },
 avatar: {
   width: 55,
@@ -501,5 +505,8 @@ avatarText: {
   color: "white",
   fontSize: 24,
   fontWeight: "bold",
+},
+userTextContainer: {
+  justifyContent: "center",
 },
 });
